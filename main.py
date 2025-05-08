@@ -11,6 +11,7 @@ CSV_FEED_URL = "https://download.maytoni.com/stock/ecom/stock-retail-direct.csv"
 GOMAG_API_URL = "https://api.gomag.ro/api/v1/product/read/json"
 GOMAG_UPDATE_URL = "https://api.gomag.ro/v1/products/update"
 GOMAG_API_TOKEN = os.getenv("GOMAG_API_TOKEN", "TOKENUL_TAU_AICI")
+GOMAG_API_SHOP = os.getenv("GOMAG_API_SHOP", "https://www.mobilado.ro")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,6 +31,7 @@ def check_stock():
         # Get Gomag product list
         headers = {
             "Authorization": GOMAG_API_TOKEN,
+            "ApiShop": GOMAG_API_SHOP,
             "Content-Type": "application/json"
         }
         response = requests.get(GOMAG_API_URL, headers=headers)
@@ -63,4 +65,3 @@ def update_stock(payload: dict):
         return {"status": response.status_code, "response": response.json()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
