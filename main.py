@@ -8,7 +8,7 @@ import os
 app = FastAPI()
 
 CSV_FEED_URL = "https://download.maytoni.com/stock/ecom/stock-retail-direct.csv"
-GOMAG_API_URL = "https://api.gomag.ro/api/v1/product/inventory/json"
+GOMAG_API_URL = "https://api.gomag.ro/api/v1/product/read/json"
 GOMAG_UPDATE_URL = "https://api.gomag.ro/v1/products/update"
 GOMAG_API_TOKEN = os.getenv("GOMAG_API_TOKEN", "TOKENUL_TAU_AICI")
 
@@ -27,12 +27,12 @@ def check_stock():
         df_stock = pd.read_csv(CSV_FEED_URL, delimiter=';')
         df_stock = df_stock.rename(columns={"ArticleNo": "SKU", "AvailInventory": "Stock"})
 
-        # Get Gomag inventory
+        # Get Gomag product list
         headers = {
-            "GOMAG-API-KEY": GOMAG_API_TOKEN,
+            "Authorization": GOMAG_API_TOKEN,
             "Content-Type": "application/json"
         }
-        response = requests.post(GOMAG_API_URL, headers=headers, json={})
+        response = requests.get(GOMAG_API_URL, headers=headers)
 
         if response.status_code != 200:
             raise HTTPException(
@@ -41,24 +41,13 @@ def check_stock():
             )
 
         try:
-            inventory_data = response.json()
+            gomag_data = response.json()
         except Exception:
             raise HTTPException(status_code=500, detail="Răspuns invalid de la Gomag: nu este JSON")
 
-        df_gomag = pd.DataFrame(inventory_data)
-        if "code" not in df_gomag or "stock" not in df_gomag:
-            raise HTTPException(status_code=500, detail="Structură neașteptată în răspunsul Gomag")
+        # Temporar: returnăm structura completă a răspunsului pentru analiză
+        return {"raw_response": gomag_data}
 
-        df_gomag = df_gomag.rename(columns={"code": "SKU", "stock": "GomagStock"})
-        df_compare = pd.merge(df_stock[["SKU", "Stock"]], df_gomag[["SKU", "GomagStock"]], on="SKU", how="inner")
-        df_diff = df_compare[df_compare["Stock"] != df_compare["GomagStock"]]
-
-        updates = [
-            {"code": row["SKU"], "stock": int(row["Stock"])}
-            for _, row in df_diff.iterrows()
-        ]
-
-        return {"products": updates}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -74,3 +63,4 @@ def update_stock(payload: dict):
         return {"status": response.status_code, "response": response.json()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
